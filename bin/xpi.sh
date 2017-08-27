@@ -20,13 +20,17 @@ trap cleanup EXIT
 
 # fill templates, could be fancier
 echo $PWD
-alias moustache='/node_modules/bin/mustache'
-mustache package.json template/install.rdf.mustache > addon/install.rdf
-mustache package.json template/chrome.manifest.mustache > addon/chrome.manifest
+mustache='./node_modules/.bin/mustache'
+$mustache package.json template/install.rdf.mustache > addon/install.rdf
+$mustache package.json template/chrome.manifest.mustache > addon/chrome.manifest
 
-source ./pre-xpi.sh
+# everything in addon goes to the xpi.
+# if you want more, get it into addon!
+
+cp -rp addon/* $DEST
 
 pushd $DEST
+ls -alf $DEST
 zip -r $DEST/${XPI} *
 mkdir -p $BASE_DIR/dist
 mv "${XPI}" $BASE_DIR/dist

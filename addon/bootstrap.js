@@ -21,7 +21,7 @@ async function startup(addonData, reason) {
     endings: studyConfig.endings,
     addon: {
       id: addonData.id,
-      version: addonData.version
+      version: addonData.version,
     },
     telemetry: studyConfig.telemetry,
   });
@@ -46,7 +46,7 @@ async function startup(addonData, reason) {
   console.log(`info ${JSON.stringify(studyUtils.info())}`);
   // if you have code to handle expiration / long-timers, it could go here.
   const webExtension = addonData.webExtension;
-  if (webExtenion) {
+  if (webExtension) {
     webExtension.startup().then(api => {
       const {browser} = api;
       // messages intended for shieldn:  {shield:true,msg=[info|endStudy|telemetry],data=data}
@@ -54,7 +54,8 @@ async function startup(addonData, reason) {
       //  other message handlers from your addon, if any
     });
   }
-  // studyUtils.endStudy("user-disable");
+
+  studyUtils.endStudy("expired");
 }
 
 
