@@ -16,7 +16,9 @@ set -eu
 BASE_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
 TMP_DIR="$(mktemp -d)"
 DEST="${TMP_DIR}/addon"
-XPI_NAME=$(node -p -e "require('./package.json').addon.xpi_name")
+ADDON_VERSION=$(node -p -e "require('./package.json').addon.version");
+ADDON_ID=$(node -p -e "require('./package.json').addon.id")
+XPI_NAME="${ADDON_ID}-${ADDON_VERSION}".xpi
 
 mkdir -p "${DEST}"
 
@@ -42,6 +44,8 @@ pushd "${DEST}" > /dev/null
 zip -r "${DEST}"/"${XPI_NAME}" *
 mkdir -p "${BASE_DIR}"/dist
 
+echo 'emptying dist...'
+rm -rf "${BASE_DIR}"/dist/*
 echo 'Moving the XPI to dist...'
 mv "${XPI_NAME}" "${BASE_DIR}"/dist
 
@@ -54,5 +58,6 @@ echo
 echo "SUCCESS: xpi at ${BASE_DIR}/dist/${XPI_NAME}"
 echo "SUCCESS: symlinked xpi at ${BASE_DIR}/dist/linked-addon.xpi"
 
+ls -alF "${BASE_DIR}"/dist
 popd > /dev/null
 

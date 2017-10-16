@@ -3,38 +3,34 @@
 /* global  __SCRIPT_URI_SPEC__  */
 /* eslint no-unused-vars: ["error", { "varsIgnorePattern": "(startup|shutdown|install|uninstall)" }]*/
 
+// https://dxr.mozilla.org/mozilla-central/source/toolkit/mozapps/extensions/internal/XPIProvider.jsm#4335-4353
 const { utils: Cu } = Components;
-Cu.import("resource://gre/modules/Console.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
-const CONFIGPATH = `${__SCRIPT_URI_SPEC__}/../Config.jsm`;
-const { config } = Cu.import(CONFIGPATH, {});
-const studyConfig = config.study;
+const BASERESOURCE = "template-shield-study";
 
-const STUDYUTILSPATH = `${__SCRIPT_URI_SPEC__}/../${studyConfig.studyUtilsPath}`;
-const { studyUtils } = Cu.import(STUDYUTILSPATH, {});
+// Learn more: https://developer.mozilla.org/en-US/docs/Mozilla/JavaScript_code_modules/XPCOMUtils.jsm#defineLazyModuleGetter()
+XPCOMUtils.defineLazyModuleGetter(this, "studyUtils",
+  `resource://${BASERESOURCE}/StudyUtils.jsm`);
+XPCOMUtils.defineLazyModuleGetter(this, "config",
+  `resource://${BASERESOURCE}/Config.jsm`);
 
-const REASONS = studyUtils.REASONS;
-
-// var log = createLog(studyConfig.study.studyName, config.log.bootstrap.level);  // defined below.
-// log("LOG started!");
-
-/* Example addon-specific module imports.  Remember to Unload.
+/* Example addon-specific module imports.  Remember to Unload during shutdown() below
    Ideally, put ALL your feature code in a Feature.jsm file,
    NOT in this bootstrap.js.
 
-  const BASE=`template-shield-study`;
+  XPCOMUtils.defineLazyModuleGetter(this, "Feature",
+    `resource://${BASERESOURCE}/lib/Feature.jsm`);
   XPCOMUtils.defineLazyModuleGetter(this, "SomeExportedSymbol",
-    `resource://${BASE}/SomeModule.jsm");
-
+    `resource://${BASERESOURCE}/SomeModule.jsm");
   XPCOMUtils.defineLazyModuleGetter(this, "Preferences",
     "resource://gre/modules/Preferences.jsm");
 */
 
 async function startup(addonData, reason) {
   // addonData: Array [ "id", "version", "installPath", "resourceURI", "instanceID", "webExtension" ]  bootstrap.js:48
-  console.log("startup", REASONS[reason] || reason);
+  console.log("startup", studyUtils.REASONS[reason] || reason);
 
   // setup the studyUtils so that Telemetry is valid
   studyUtils.setup({
@@ -43,16 +39,16 @@ async function startup(addonData, reason) {
   });
 
   // choose the variation for this particular user, then set it.
-  const variation = (studyConfig.forceVariation ||
+  const variation = (config.study.forceVariation ||
     await studyUtils.deterministicVariation(
-      studyConfig.weightedVariations
+      config.study.weightedVariations
     )
   );
   studyUtils.setVariation(variation);
 
 
   // addon_install:  note first seen, check eligible
-  if ((REASONS[reason]) === "ADDON_INSTALL") {
+  if ((studyUtils.REASONS[reason]) === "ADDON_INSTALL") {
     studyUtils.firstSeen(); // sends telemetry "enter"
     const eligible = await config.isEligible(); // addon-specific
     if (!eligible) {
@@ -88,12 +84,17 @@ async function startup(addonData, reason) {
 
     });
   }
+
+  // Example of running study-specific legacy add-on code on startup
+  //new Feature(variation).start();
 }
 
 
 function shutdown(addonData, reason) {
-  console.log("shutdown", REASONS[reason] || reason);
-  // FRAGILE: handle uninstalls initiated by USER or by addon
+  console.log("shutdown", studyUtils.REASONS[reason] || reason);
+  const { REASONS } = studyUtils;
+  // FRAGILE: handle uninstalls initiated by USER or by addon,
+  // BUT NOT by Normandy 'uninstall'
   if (reason === REASONS.ADDON_UNINSTALL || reason === REASONS.ADDON_DISABLE) {
     console.log("uninstall or disable");
     if (!studyUtils._isEnding) {
@@ -103,27 +104,25 @@ function shutdown(addonData, reason) {
       return;
     }
     // normal shutdown, or 2nd uninstall request
-    console.log("Jsms unloading");
 
 
     // QA NOTE:  unload addon specific modules here.
-
-
-
     // clean up our modules.
-    Cu.unload(CONFIGPATH);
-    Cu.unload(STUDYUTILSPATH);
-
+    console.log("Jsms unloading");
+    Cu.unload(`resource://${BASERESOURCE}/StudyUtils.jsm`);
+    Cu.unload(`resource://${BASERESOURCE}/Config.jsm`);
+    //Cu.unload(`resource://${BASERESOURCE}/lib/Feature.jsm`);
 
   }
 }
 
 function uninstall(addonData, reason) {
-  console.log("uninstall", REASONS[reason] || reason);
+  console.log("uninstall", studyUtils.REASONS[reason] || reason);
 }
 
 function install(addonData, reason) {
-  console.log("install", REASONS[reason] || reason);
+  // TODO resource paths aren't avaiable yet, so studyUtils isn't.
+  console.log("install", reason);
   // handle ADDON_UPGRADE (if needful) here
 }
 
@@ -131,10 +130,10 @@ function install(addonData, reason) {
 
 // logging
 // function createLog(name, levelWord) {
-//  Cu.import("resource://gre/modules/Log.jsm");
-//  var L = Log.repository.getLogger(name);
-//  L.addAppender(new Log.ConsoleAppender(new Log.BasicFormatter()));
-//  L.level = Log.Level[levelWord] || Log.Level.Debug; // should be a config / pref
-//  return L;
+//   Cu.import("resource://gre/modules/Log.jsm");
+//   var L = Log.repository.getLogger(name);
+//   L.addAppender(new Log.ConsoleAppender(new Log.BasicFormatter()));
+//   L.level = Log.Level[levelWord] || Log.Level.Debug; // should be a config / pref
+//   return L;
 // }
 
